@@ -1,11 +1,5 @@
 # Module — Chevaux
 
-## Objectif
-Centraliser toutes les informations relatives aux chevaux hébergés dans l'écurie.
-
-## Fonctionnalités
-
-### Fiche cheval[module-chevaux.md](https://github.com/user-attachments/files/26137061/module-chevaux.md)# Module — Chevaux
 
 Dernière mise à jour : 20 mars 2026
 
