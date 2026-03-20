@@ -1,0 +1,385 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── UTILISATEURS & RÔLES ────────────────────────────────────────────────────
+
+enum Role {
+  GESTIONNAIRE
+  SOIGNEUR
+  PROPRIETAIRE
+  CAVALIER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  nom           String
+  prenom        String
+  telephone     String?
+  avatar        String?
+  role          Role      @default(CAVALIER)
+  actif         Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  chevaux           Cheval[]          @relation("ProprietaireChevaux")
+  activitesSaisies  Activite[]        @relation("ActiviteSaisieePar")
+  activitesValidees Activite[]        @relation("ActiviteValideePar")
+  reservations      Reservation[]
+  messageEnvoyes    Message[]
+  canauxMembres     CanalMembre[]
+  compteRendusSaisis CompteRendu[]
+  infraCreees       Infrastructure[]  @relation("InfraProprietaire")
+}
+
+// ─── CHEVAUX ─────────────────────────────────────────────────────────────────
+
+enum StatutCheval {
+  PRESENT
+  ABSENT
+  VENDU
+  DECEDE
+}
+
+model Cheval {
+  id            String       @id @default(cuid())
+  nom           String
+  race          String?
+  robe          String?
+  sexe          String?
+  dateNaissance DateTime?
+  photo         String?
+  statut        StatutCheval @default(PRESENT)
+  boxId         String?
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  proprietaireId  String
+  proprietaire    User             @relation("ProprietaireChevaux", fields: [proprietaireId], references: [id])
+  intervenants    ChevalIntervenant[]
+  activites       Activite[]
+  evenements      Evenement[]
+  compteRendus    CompteRendu[]
+  canalCheval     Canal?
+}
+
+// ─── INTERVENANTS ─────────────────────────────────────────────────────────────
+
+enum TypeIntervenant {
+  VETERINAIRE
+  DENTISTE
+  OSTEOPATHE
+  MARECHAL
+  PHYSIOTHERAPEUTE
+  ENTRAINEUR
+  AUTRE
+}
+
+model Intervenant {
+  id        String          @id @default(cuid())
+  nom       String
+  prenom    String?
+  type      TypeIntervenant
+  telephone String?
+  email     String?
+  adresse   String?
+  createdAt DateTime        @default(now())
+
+  chevaux      ChevalIntervenant[]
+  compteRendus CompteRendu[]
+  evenements   Evenement[]
+  reservations Reservation[]
+}
+
+model ChevalIntervenant {
+  chevalId      String
+  intervenantId String
+  depuis        DateTime  @default(now())
+  actif         Boolean   @default(true)
+  notes         String?
+
+  cheval      Cheval      @relation(fields: [chevalId], references: [id])
+  intervenant Intervenant @relation(fields: [intervenantId], references: [id])
+
+  @@id([chevalId, intervenantId])
+}
+
+// ─── ACTIVITÉS ────────────────────────────────────────────────────────────────
+
+enum TypeActivite {
+  MONTE
+  PIED
+  SORTIE
+  REPOS
+  COURS
+  VETERINAIRE
+  SOIN
+  ENTRAINEMENT
+}
+
+enum StatutActivite {
+  PLANIFIE
+  ATTENTE
+  COMPLETE
+  MANQUE
+}
+
+enum Intensite {
+  LEGER
+  MODERE
+  INTENSE
+}
+
+enum Humeur {
+  BIEN
+  MOYEN
+  FATIGUE
+}
+
+model Activite {
+  id              String         @id @default(cuid())
+  date            DateTime
+  type            TypeActivite
+  statut          StatutActivite @default(PLANIFIE)
+  duree           Int?
+  intensite       Intensite?
+  humeur          Humeur?
+  note            String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  chevalId        String
+  cheval          Cheval         @relation(fields: [chevalId], references: [id])
+  intervenantId   String?
+  intervenant     Intervenant?   @relation(fields: [intervenantId], references: [id])
+  saisieParId     String?
+  saisiePar       User?          @relation("ActiviteSaisieePar", fields: [saisieParId], references: [id])
+  valideParId     String?
+  validePar       User?          @relation("ActiviteValideePar", fields: [valideParId], references: [id])
+  sourceEvenementId String?
+  sourceEvenement Evenement?     @relation(fields: [sourceEvenementId], references: [id])
+}
+
+// ─── ÉVÉNEMENTS PRÉVISIONNELS ─────────────────────────────────────────────────
+
+enum TypeEvenement {
+  COURS
+  CONCOURS
+  VETERINAIRE
+  SOIN
+  ENTRAINEMENT
+}
+
+model Evenement {
+  id            String        @id @default(cuid())
+  type          TypeEvenement
+  date          DateTime
+  heure         String?
+  note          String?
+  rappelEnvoye  Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+
+  chevalId      String
+  cheval        Cheval        @relation(fields: [chevalId], references: [id])
+  intervenantId String?
+  intervenant   Intervenant?  @relation(fields: [intervenantId], references: [id])
+  serieId       String?
+  serie         SerieRecurrente? @relation(fields: [serieId], references: [id])
+  activites     Activite[]
+}
+
+model SerieRecurrente {
+  id            String        @id @default(cuid())
+  type          TypeEvenement
+  jourSemaine   Int
+  heure         String?
+  dateDebut     DateTime
+  dateFin       DateTime?
+  actif         Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+
+  chevalId      String
+  intervenantId String?
+  evenements    Evenement[]
+}
+
+// ─── SUIVI MÉDICAL ────────────────────────────────────────────────────────────
+
+model CompteRendu {
+  id              String    @id @default(cuid())
+  dateVisite      DateTime
+  motif           String
+  diagnostic      String?
+  traitement      String?
+  cout            Decimal?
+  rdvDescription  String?
+  rdvDateCible    DateTime?
+  rdvPlanifie     Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  chevalId        String
+  cheval          Cheval      @relation(fields: [chevalId], references: [id])
+  intervenantId   String
+  intervenant     Intervenant @relation(fields: [intervenantId], references: [id])
+  saisiParId      String
+  saisiPar        User        @relation(fields: [saisiParId], references: [id])
+  documents       DocumentMedical[]
+}
+
+enum TypeDocument {
+  ORDONNANCE
+  RADIO
+  PHOTO
+  AUTRE
+}
+
+model DocumentMedical {
+  id            String       @id @default(cuid())
+  type          TypeDocument
+  nomFichier    String
+  urlStockage   String
+  uploadedAt    DateTime     @default(now())
+
+  compteRenduId String
+  compteRendu   CompteRendu  @relation(fields: [compteRenduId], references: [id])
+}
+
+// ─── INFRASTRUCTURES & RÉSERVATIONS ──────────────────────────────────────────
+
+enum TypeInfrastructure {
+  CARRIERE
+  RONDELONGE
+  MARCHEUR
+  PADDOCK
+  SALLE
+  BOX
+  VAN
+  AUTRE
+}
+
+enum TypePrix {
+  HEURE
+  RESERVATION
+}
+
+enum TypeProprietaire {
+  ECURIE
+  PROPRIETAIRE
+  CAVALIER
+  TIERS
+}
+
+model Infrastructure {
+  id               String             @id @default(cuid())
+  nom              String
+  type             TypeInfrastructure
+  capacite         Int                @default(1)
+  unite            String             @default("cheval")
+  prixType         TypePrix?
+  prix             Decimal?
+  proprietaireType TypeProprietaire   @default(ECURIE)
+  horaires         String?
+  description      String?
+  notesInternes    String?
+  actif            Boolean            @default(true)
+  ordre            Int                @default(0)
+  createdAt        DateTime           @default(now())
+
+  proprietaireId   String?
+  proprietaire     User?              @relation("InfraProprietaire", fields: [proprietaireId], references: [id])
+  reservations     Reservation[]
+}
+
+model Reservation {
+  id               String         @id @default(cuid())
+  date             DateTime
+  heureDebut       String
+  heureFin         String
+  partage          Boolean        @default(true)
+  note             String?
+  coutEstime       Decimal?
+  createdAt        DateTime       @default(now())
+
+  infrastructureId String
+  infrastructure   Infrastructure @relation(fields: [infrastructureId], references: [id])
+  chevalId         String?
+  cheval           Cheval?        @relation(fields: [chevalId], references: [id])
+  reserveParId     String
+  reservePar       User           @relation(fields: [reserveParId], references: [id])
+  intervenantId    String?
+  intervenant      Intervenant?   @relation(fields: [intervenantId], references: [id])
+}
+
+// ─── COMMUNICATION ────────────────────────────────────────────────────────────
+
+enum TypeCanal {
+  PRIVE
+  GROUPE
+  CHEVAL
+  ANNONCE
+}
+
+model Canal {
+  id        String    @id @default(cuid())
+  type      TypeCanal
+  nom       String?
+  important Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  chevalId  String?   @unique
+  cheval    Cheval?   @relation(fields: [chevalId], references: [id])
+  creeParId String?
+  membres   CanalMembre[]
+  messages  Message[]
+}
+
+model CanalMembre {
+  canalId       String
+  userId        String
+  rejoIntLe     DateTime @default(now())
+  notifications Boolean  @default(true)
+
+  canal Canal @relation(fields: [canalId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@id([canalId, userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  texte     String
+  supprime  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  modifieLe DateTime?
+
+  canalId   String
+  canal     Canal    @relation(fields: [canalId], references: [id])
+  auteurId  String
+  auteur    User     @relation(fields: [auteurId], references: [id])
+  replyToId String?
+  replyTo   Message? @relation("Replies", fields: [replyToId], references: [id])
+  replies   Message[] @relation("Replies")
+  lus       MessageLu[]
+}
+
+model MessageLu {
+  messageId String
+  userId    String
+  luLe      DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@id([messageId, userId])
+}
