@@ -2,11 +2,6 @@
 
 Dernière mise à jour : 20 mars 2026
 
-## Objectif
-Permettre à tous les utilisateurs de réserver les infrastructures de l'écurie (carrière, paddocks, marcheur…) en temps réel, avec détection automatique des conflits de capacité.
-[module-reservations (1).md](https://github.com/user-attachments/files/26138005/module-reservations.1.md)# Module — Réservation et gestion des infrastructures
-
-Dernière mise à jour : 20 mars 2026
 
 ## Objectif
 Permettre la gestion complète des infrastructures de l'écurie (création, modification, désactivation) et leur réservation par tous les utilisateurs, avec gestion de la capacité, du partage, du prix et du propriétaire.
